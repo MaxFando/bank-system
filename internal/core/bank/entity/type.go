@@ -6,14 +6,14 @@ import (
 )
 
 type User struct {
-	ID          int32  `db:"id"`
-	Email       string `db:"email"`
-	Password    string `db:"password_hash"`
-	FirstName   string `db:"first_name"`
-	LastName    string `db:"last_name"`
-	DateOfBirth string `db:"date_of_birth"`
-	CreatedAt   string `db:"created_at"`
-	UpdatedAt   string `db:"updated_at"`
+	ID          int32     `db:"id"`
+	Email       string    `db:"email"`
+	Password    string    `db:"password_hash"`
+	FirstName   string    `db:"first_name"`
+	LastName    string    `db:"last_name"`
+	DateOfBirth time.Time `db:"date_of_birth"`
+	CreatedAt   string    `db:"created_at"`
+	UpdatedAt   string    `db:"updated_at"`
 }
 
 type AccountType string

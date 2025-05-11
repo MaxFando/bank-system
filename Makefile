@@ -1,10 +1,10 @@
 LOCAL_BIN := $(shell pwd)/bin
 
-appName = comm-banners
+appName = bank
 compose = docker-compose -f docker-compose-debug.yml -p $(appName)
 
-DB_BANNER = postgresql://postgres:postgres@localhost:5432/bank?sslmode=disable
-DB_BANNER_MIGRATION_DSN = postgresql://postgres:postgres@localhost:5432/bank?search_path=main
+DB_BANK = postgresql://postgres:postgres@localhost:5432/bank?sslmode=disable
+DB_BANK_MIGRATION_DSN = postgresql://postgres:postgres@localhost:5432/bank?search_path=main
 
 install-deps:
 	GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
@@ -14,17 +14,17 @@ install-deps:
 db-create-migration:
 	@echo "Enter migration name:"
 	@read name; \
-	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANNER_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations create $$name sql
+	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANK_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations create $$name sql
 
 db-migrate:
-	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANNER_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations up
+	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANK_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations up
 
 db-rollback:
-	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANNER_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations down
+	GOOSE_DRIVER=postgres GOOSE_DBSTRING=$(DB_BANK_MIGRATION_DSN) $(LOCAL_BIN)/goose -dir migrations down
 
 .PHONY: fixtures
 fixtures:
-	go run cmd/fixtures/main.go -dsn=$(DB_BANNER)
+	go run cmd/fixtures/main.go -dsn=$(DB_BANK)
 
 up: down build
 	@echo "Starting app..."

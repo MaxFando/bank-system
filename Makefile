@@ -7,7 +7,7 @@ DB_BANK = postgresql://postgres:postgres@localhost:5432/bank?sslmode=disable
 DB_BANK_MIGRATION_DSN = postgresql://postgres:postgres@localhost:5432/bank?search_path=main
 
 install-deps:
-	GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
+	GOBIN=$(LOCAL_BIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	GOBIN=$(LOCAL_BIN) go install go.uber.org/mock/mockgen@v0.5.0
 	GOBIN=$(LOCAL_BIN) go install github.com/pressly/goose/v3/cmd/goose@v3.21.1
 

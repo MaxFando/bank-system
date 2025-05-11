@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"github.com/MaxFando/bank-system/config"
 	"github.com/MaxFando/bank-system/internal/core/bank/entity"
+	"github.com/MaxFando/bank-system/pkg/sqlext/transaction"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"log/slog"
@@ -20,15 +21,16 @@ import (
 type CardRepository interface {
 	Save(ctx context.Context, card *entity.Card) (*entity.Card, error)
 	FindByID(ctx context.Context, id int32) (*entity.Card, error)
-	FindByAccountID(ctx context.Context, accountID int32) ([]*entity.Card, error)
+	FindByAccountID(ctx context.Context, accountID int32) ([]entity.Card, error)
 }
 
 type CardTransactionRepository interface {
-	Transfer(ctx context.Context, cardID int32, amount float64) error
-	Withdraw(ctx context.Context, cardID int32, amount float64) error
-	Deposit(ctx context.Context, cardID int32, amount float64) error
+	Transfer(ctx context.Context, cardID int32, amount float64) (int32, error)
+	Withdraw(ctx context.Context, cardID int32, amount float64) (int32, error)
+	Deposit(ctx context.Context, cardID int32, amount float64) (int32, error)
 	FindByID(ctx context.Context, id int32) (*entity.CardTransaction, error)
-	FindByCardID(ctx context.Context, cardID int32) ([]*entity.CardTransaction, error)
+
+	WithTx(ctx context.Context, fn transaction.AtomicFn, opts ...transaction.TxOption) error
 }
 
 type CardService struct {
@@ -100,12 +102,17 @@ func (s *CardService) FindByID(ctx context.Context, id int32) (*entity.Card, err
 		return nil, fmt.Errorf("failed to find card by ID: %w", err)
 	}
 
+	e, err2 := s.smth(err, card)
+	if err2 != nil {
+		return e, err2
+	}
+
 	s.logger.Info("card found successfully", "card_id", card.ID)
 	return card, nil
 }
 
 // FindByAccountID находит все кредитные карты, связанные с указанным идентификатором счета.
-func (s *CardService) FindByAccountID(ctx context.Context, accountID int32) ([]*entity.Card, error) {
+func (s *CardService) FindByAccountID(ctx context.Context, accountID int32) ([]entity.Card, error) {
 	cards, err := s.cardRepository.FindByAccountID(ctx, accountID)
 	if err != nil {
 		s.logger.Error("failed to find cards by account ID", "error", err)
@@ -113,39 +120,102 @@ func (s *CardService) FindByAccountID(ctx context.Context, accountID int32) ([]*
 	}
 
 	s.logger.Info("cards found successfully", "account_id", accountID, "cards_count", len(cards))
+
+	for i := range cards {
+		_, err := s.smth(err, &cards[i])
+		if err != nil {
+			s.logger.Error("failed to decrypt card data", "error", err)
+			return nil, fmt.Errorf("failed to decrypt card data: %w", err)
+		}
+	}
+
 	return cards, nil
 }
 
-func (s *CardService) Transfer(ctx context.Context, cardID int32, amount float64) error {
-	err := s.cardTransactionRepository.Transfer(ctx, cardID, amount)
+func (s *CardService) smth(err error, card *entity.Card) (*entity.Card, error) {
+	// Расшифровка данных карты
+	decryptCardData, err := s.decryptCardData(card.EncryptedData, s.privateKeyPath, s.passphrase)
 	if err != nil {
-		s.logger.Error("failed to transfer money", "error", err)
-		return fmt.Errorf("failed to transfer money: %w", err)
+		s.logger.Error("failed to decrypt card data", "error", err)
+		return nil, fmt.Errorf("failed to decrypt card data: %w", err)
 	}
 
-	s.logger.Info("money transferred successfully", "card_id", cardID, "amount", amount)
+	// Проверка HMAC для целостности данных карты
+	expectedHMAC := s.generateHMAC(decryptCardData, fmt.Sprintf("%d", card.AccountID))
+	if card.HMAC != expectedHMAC {
+		s.logger.Error("HMAC verification failed", "expected_hmac", expectedHMAC, "actual_hmac", card.HMAC)
+		return nil, fmt.Errorf("HMAC verification failed")
+	}
+
+	decryptCardDataParts := bytes.Split([]byte(decryptCardData), []byte(":"))
+	if len(decryptCardDataParts) != 3 {
+		s.logger.Error("invalid decrypted card data format")
+		return nil, fmt.Errorf("invalid decrypted card data format")
+	}
+
+	card.CardNumber = string(decryptCardDataParts[0])
+	card.CVV = string(decryptCardDataParts[1])
+	card.ExpirationDate, err = time.Parse("2006-01-02", string(decryptCardDataParts[2]))
+	return nil, nil
+}
+
+func (s *CardService) Transfer(ctx context.Context, cardID int32, amount float64) error {
+	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
+		transactionID, err := s.cardTransactionRepository.Transfer(ctx, cardID, amount)
+		if err != nil {
+			s.logger.Error("failed to transfer money", "error", err)
+			return fmt.Errorf("failed to transfer money: %w", err)
+		}
+
+		s.logger.Info("money transferred successfully", "transaction_id", transactionID, "card_id", cardID, "amount", amount)
+		return nil
+	})
+
+	if err != nil {
+		s.logger.Error("transaction failed", "error", err)
+		return fmt.Errorf("transaction failed: %w", err)
+	}
+
+	s.logger.Info("transaction completed successfully", "card_id", cardID, "amount", amount)
 	return nil
 }
 
 func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount float64) error {
-	err := s.cardTransactionRepository.Withdraw(ctx, cardID, amount)
+	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
+		transactionID, err := s.cardTransactionRepository.Withdraw(ctx, cardID, amount)
+		if err != nil {
+			s.logger.Error("failed to withdraw money", "error", err)
+			return fmt.Errorf("failed to withdraw money: %w", err)
+		}
+
+		s.logger.Info("money withdrawn successfully", "transaction_id", transactionID, "card_id", cardID, "amount", amount)
+		return nil
+	})
 	if err != nil {
-		s.logger.Error("failed to withdraw money", "error", err)
-		return fmt.Errorf("failed to withdraw money: %w", err)
+		s.logger.Error("transaction failed", "error", err)
+		return fmt.Errorf("transaction failed: %w", err)
 	}
 
-	s.logger.Info("money withdrawn successfully", "card_id", cardID, "amount", amount)
+	s.logger.Info("transaction completed successfully", "card_id", cardID, "amount", amount)
 	return nil
 }
 
 func (s *CardService) Deposit(ctx context.Context, cardID int32, amount float64) error {
-	err := s.cardTransactionRepository.Deposit(ctx, cardID, amount)
-	if err != nil {
-		s.logger.Error("failed to deposit money", "error", err)
-		return fmt.Errorf("failed to deposit money: %w", err)
-	}
+	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
+		transactionID, err := s.cardTransactionRepository.Deposit(ctx, cardID, amount)
+		if err != nil {
+			s.logger.Error("failed to deposit money", "error", err)
+			return fmt.Errorf("failed to deposit money: %w", err)
+		}
 
-	s.logger.Info("money deposited successfully", "card_id", cardID, "amount", amount)
+		s.logger.Info("money deposited successfully", "transaction_id", transactionID, "card_id", cardID, "amount", amount)
+		return nil
+	})
+	if err != nil {
+		s.logger.Error("transaction failed", "error", err)
+		return fmt.Errorf("transaction failed: %w", err)
+	}
+	s.logger.Info("transaction completed successfully", "card_id", cardID, "amount", amount)
 	return nil
 }
 
@@ -235,7 +305,7 @@ func (s *CardService) encryptCardDataPGP(card *entity.Card, publicKeyPath string
 		return "", fmt.Errorf("could not read public key: %v", err)
 	}
 
-	cardData := fmt.Sprintf("CardNumber: %s\nCVV: %s\nExpirationDate: %s\n", card.CardNumber, card.CVV, card.ExpirationDate)
+	cardData := fmt.Sprintf("%s:%s:%s", card.CardNumber, card.CVV, card.ExpirationDate)
 
 	var encryptedData bytes.Buffer
 

@@ -1,0 +1,40 @@
+# Версия конфига для golangci-lint v1.61.0
+run:
+  timeout: 5m
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt
+    - goimports
+    - errcheck
+    - staticcheck
+    - unused
+    - gosimple
+    - govet
+    - misspell
+    - unconvert
+linters-settings:
+  gofmt:
+    simplify: true
+  goimports:
+    local-prefixes: "github.com/MaxFando/bank-system"
+  misspell:
+    locale: US
+  revive:
+    rules:
+      - name: var-naming
+        severity: warning
+      - name: unused-parameter
+        severity: warning
+
+issues:
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - funlen
+        - goimports
+        - goconst
+
+output:
+  sort-results: true

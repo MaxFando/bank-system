@@ -20,6 +20,10 @@ func (c Currency) Validate() error {
 	return nil
 }
 
+func (c Currency) String() string {
+	return string(c)
+}
+
 // AccountNumber представляет номер банковского счета.
 type AccountNumber string
 
@@ -30,4 +34,8 @@ func (a AccountNumber) Validate() error {
 		return fmt.Errorf("invalid account number: %s, must be 20 digits", a)
 	}
 	return nil
+}
+
+func (a AccountNumber) String() string {
+	return string(a)
 }

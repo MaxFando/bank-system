@@ -63,13 +63,24 @@ func (a *Account) Deposit(amount decimal.Decimal) error {
 	return nil
 }
 
-type Cards struct {
-	ID             int32  `db:"id"`
-	AccountID      int32  `db:"account_id"`
-	CardNumber     string `db:"card_number"`
-	ExpirationDate string `db:"expiration_date"`
-	CVV            string `db:"cvv"`
-	Status         string `db:"status"`
+type CardStatus string
+
+const (
+	CardActive   CardStatus = "active"
+	CardInactive CardStatus = "inactive"
+	CardBlocked  CardStatus = "blocked"
+	CardExpired  CardStatus = "expired"
+)
+
+type Card struct {
+	ID             int32 `db:"id"`
+	AccountID      int32 `db:"account_id"`
+	CardNumber     string
+	ExpirationDate time.Time
+	CVV            string
+	Status         CardStatus
+	EncryptedData  string `db:"encrypted_data"`
+	HMAC           string `db:"hash"`
 	CreatedAt      string `db:"created_at"`
 	UpdatedAt      string `db:"updated_at"`
 }

@@ -15,6 +15,7 @@ import (
 type AccountRepository interface {
 	Save(ctx context.Context, account *entity.Account) (*entity.Account, error)
 	FindByID(ctx context.Context, id int32) (*entity.Account, error)
+	GetAccountByUserID(ctx context.Context, userID int32) (*entity.Account, error)
 }
 
 // AccountService предоставляет методы для работы с банковскими счетами, включая создание, пополнение, снятие и переводы.
@@ -29,6 +30,14 @@ func NewAccountService(logger *slog.Logger, repo AccountRepository) *AccountServ
 		repo:   repo,
 		logger: logger,
 	}
+}
+
+func (s *AccountService) GetAccountByUserID(ctx context.Context, userID int32) (*entity.Account, error) {
+	account, err := s.repo.GetAccountByUserID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find account: %w", err)
+	}
+	return account, nil
 }
 
 // Create создает новый банковский счет с указанными параметрами и сохраняет его в хранилище.

@@ -123,11 +123,8 @@ type Transfer struct {
 type CreditStatus string
 
 const (
-	CreditStatusApproved  CreditStatus = "approved"
-	CreditStatusRejected  CreditStatus = "rejected"
-	CreditStatusPending   CreditStatus = "pending"
-	CreditStatusPaid      CreditStatus = "paid"
-	CreditStatusDefaulted CreditStatus = "defaulted"
+	CreditStatusActive CreditStatus = "active"
+	CreditStatusPaid   CreditStatus = "paid"
 )
 
 type Credit struct {
@@ -136,9 +133,23 @@ type Credit struct {
 	Amount       decimal.Decimal `db:"amount"`         // Сумма кредита
 	InterestRate decimal.Decimal `db:"interest_rate"`  // Процентная ставка
 	TermInMonths int32           `db:"term_in_months"` // Срок кредита (в месяцах)
-	Status       CreditStatus    `db:"status"`         // Статус кредита (оформлен, погашен и т.д.)
+	Status       CreditStatus    `db:"status"`         // Статус кредита (оформлен, погашен)
 	CreatedAt    string          `db:"created_at"`     // Дата оформления кредита
 	UpdatedAt    string          `db:"updated_at"`     // Дата последнего обновления
+}
+
+func (c *Credit) Withdraw(amount decimal.Decimal) error {
+	if c.Status != CreditStatusActive {
+		return ErrCreditNotActive
+	}
+
+	if amount.GreaterThan(c.Amount) {
+		return ErrCreditAmountExceeded
+	}
+
+	c.Amount = c.Amount.Sub(amount)
+
+	return nil
 }
 
 type PaymentSchedule struct {
@@ -146,9 +157,10 @@ type PaymentSchedule struct {
 	CreditID        int32           `db:"credit_id"`        // Внешний ключ на кредит
 	PaymentDate     time.Time       `db:"payment_date"`     // Дата платежа
 	PaymentAmount   decimal.Decimal `db:"payment_amount"`   // Сумма платежа
-	PrincipalAmount decimal.Decimal `db:"principal_amount"` // Основной долг
-	InterestAmount  decimal.Decimal `db:"interest_amount"`  // Сумма процентов
-	Status          CreditStatus    `db:"status"`           // Статус платежа (оплачен, не оплачен)
+	PrincipalAmount decimal.Decimal `db:"principal_amount"` // Сумма, погашенная по телу кредита
+	InterestAmount  decimal.Decimal `db:"interest_amount"`  // Сумма, погашенная по процентам
+	Penalty         decimal.Decimal `db:"penalty"`          // Штраф за просрочку
+	Balance         decimal.Decimal `db:"balance"`          // Остаток долга после платежа
 	CreatedAt       string          `db:"created_at"`       // Дата создания записи
 	UpdatedAt       string          `db:"updated_at"`       // Дата последнего обновления
 }

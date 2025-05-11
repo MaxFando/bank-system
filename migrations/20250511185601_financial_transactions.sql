@@ -9,7 +9,7 @@ CREATE TABLE main.financial_transactions
     transaction_date   TIMESTAMP DEFAULT NOW(),            -- Дата операции
     transaction_status VARCHAR(50),                        -- Статус операции (успешно, отклонено)
     created_at         TIMESTAMP DEFAULT NOW(),            -- Дата создания записи
-    updated_at         TIMESTAMP DEFAULT NOW(),            -- Дата последнего обновления
+    updated_at         TIMESTAMP DEFAULT NOW()            -- Дата последнего обновления
 );
 -- +goose StatementEnd
 

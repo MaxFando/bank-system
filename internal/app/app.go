@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/MaxFando/bank-system/config"
+	"github.com/MaxFando/bank-system/internal/delivery/cli"
 	"github.com/MaxFando/bank-system/internal/delivery/http"
 	"github.com/MaxFando/bank-system/internal/providers"
 	"github.com/MaxFando/bank-system/pkg/sqlext"
@@ -47,6 +48,9 @@ func (a *App) Run(ctx context.Context) error {
 
 	a.httpServer = httpServer
 	a.logger.Info("HTTP server started", "port", a.config.Port)
+
+	cron := cli.New()
+	cron.Start()
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, syscall.SIGTERM, syscall.SIGINT)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/MaxFando/bank-system/internal/core/bank/entity"
+	"github.com/MaxFando/bank-system/pkg/cb"
 	"github.com/MaxFando/bank-system/pkg/sqlext/transaction"
 	"github.com/shopspring/decimal"
 	"log/slog"
@@ -50,7 +51,15 @@ func (s *CreditService) GetPaymentSchedule(ctx context.Context, creditID int32) 
 }
 
 // Create создает новый кредит для указанного пользователя и составляет график платежей на основе переданных параметров.
-func (s *CreditService) Create(ctx context.Context, userID int32, principal, interestRate decimal.Decimal, termMonths int32) (*entity.Credit, error) {
+func (s *CreditService) Create(ctx context.Context, userID int32, principal decimal.Decimal, termMonths int32) (*entity.Credit, error) {
+	interest, err := cb.GetCentralBankRateWithMargin() // Получение процентной ставки из ЦБ
+	if err != nil {
+		s.logger.Error("failed to get interest rate", "error", err)
+		return nil, fmt.Errorf("failed to get interest rate: %w", err)
+	}
+
+	interestRate := decimal.NewFromFloat(interest).Div(decimal.NewFromInt(100)) // Преобразование в десятичный формат
+
 	annuityPayment, err := calculateAnnuityPayment(principal, interestRate, int(termMonths))
 	if err != nil {
 		s.logger.Error("failed to calculate annuity payment", "error", err)

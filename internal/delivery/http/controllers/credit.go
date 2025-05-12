@@ -19,7 +19,6 @@ func NewCreditController(creditService *bank.CreditService) *CreditController {
 func (ctrl *CreditController) Create(c echo.Context) error {
 	type request struct {
 		Principal decimal.Decimal `json:"principal" validate:"required"`
-		Interest  decimal.Decimal `json:"interest" validate:"required"`
 		Term      int32           `json:"term" validate:"required"`
 	}
 
@@ -33,7 +32,7 @@ func (ctrl *CreditController) Create(c echo.Context) error {
 	}
 
 	userID := c.Get("user_id").(int32)
-	credit, err := ctrl.creditService.Create(c.Request().Context(), userID, req.Principal, req.Interest, req.Term)
+	credit, err := ctrl.creditService.Create(c.Request().Context(), userID, req.Principal, req.Term)
 	if err != nil {
 		return c.JSON(500, map[string]string{"error": "Credit creation failed"})
 	}

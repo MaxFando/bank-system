@@ -11,11 +11,11 @@ type ServiceProvider struct {
 	logger *slog.Logger
 	cfg    *config.Config
 
-	userService    *user.Service
-	authService    *user.AuthService
-	accountService *bank.AccountService
-	cardService    *bank.CardService
-	creditService  *bank.CreditService
+	UserService    *user.Service
+	AuthService    *user.AuthService
+	AccountService *bank.AccountService
+	CardService    *bank.CardService
+	CreditService  *bank.CreditService
 }
 
 func NewServiceProvider(logger *slog.Logger, cfg *config.Config) *ServiceProvider {
@@ -23,9 +23,9 @@ func NewServiceProvider(logger *slog.Logger, cfg *config.Config) *ServiceProvide
 }
 
 func (p *ServiceProvider) RegisterDependency(provider *RepositoryProvider) {
-	p.userService = user.NewService(p.logger, provider.userRepository)
-	p.authService = user.NewAuthService(p.logger, provider.userRepository)
-	p.accountService = bank.NewAccountService(p.logger, provider.accountRepository)
-	p.cardService = bank.NewCardService(p.logger, p.cfg, provider.cardRepository, provider.transactionRepository)
-	p.creditService = bank.NewCreditService(p.logger, provider.creditRepository, p.accountService)
+	p.UserService = user.NewService(p.logger, provider.userRepository)
+	p.AuthService = user.NewAuthService(p.logger, provider.userRepository)
+	p.AccountService = bank.NewAccountService(p.logger, provider.accountRepository)
+	p.CardService = bank.NewCardService(p.logger, p.cfg, p.AccountService, provider.cardRepository, provider.transactionRepository)
+	p.CreditService = bank.NewCreditService(p.logger, provider.creditRepository, p.AccountService)
 }

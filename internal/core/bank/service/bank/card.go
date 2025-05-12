@@ -10,6 +10,7 @@ import (
 	"github.com/MaxFando/bank-system/config"
 	"github.com/MaxFando/bank-system/internal/core/bank/entity"
 	"github.com/MaxFando/bank-system/pkg/sqlext/transaction"
+	"github.com/shopspring/decimal"
 	"golang.org/x/crypto/openpgp"
 	"io"
 	"log/slog"
@@ -25,9 +26,9 @@ type CardRepository interface {
 }
 
 type CardTransactionRepository interface {
-	Transfer(ctx context.Context, cardID int32, amount float64) (int32, error)
-	Withdraw(ctx context.Context, cardID int32, amount float64) (int32, error)
-	Deposit(ctx context.Context, cardID int32, amount float64) (int32, error)
+	Transfer(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error)
+	Withdraw(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error)
+	Deposit(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error)
 	FindByID(ctx context.Context, id int32) (*entity.CardTransaction, error)
 
 	WithTx(ctx context.Context, fn transaction.AtomicFn, opts ...transaction.TxOption) error
@@ -36,6 +37,8 @@ type CardTransactionRepository interface {
 type CardService struct {
 	cardRepository            CardRepository
 	cardTransactionRepository CardTransactionRepository
+
+	accountService *AccountService
 
 	publicKeyPath  string
 	privateKeyPath string
@@ -47,10 +50,12 @@ type CardService struct {
 func NewCardService(
 	logger *slog.Logger,
 	cfg *config.Config,
+	accountService *AccountService,
 	cardRepository CardRepository,
 	cardTransactionRepository CardTransactionRepository,
 ) *CardService {
 	return &CardService{
+		accountService:            accountService,
 		cardRepository:            cardRepository,
 		cardTransactionRepository: cardTransactionRepository,
 		publicKeyPath:             cfg.PublicKeyPath,
@@ -159,15 +164,44 @@ func (s *CardService) smth(err error, card *entity.Card) (*entity.Card, error) {
 	return nil, nil
 }
 
-func (s *CardService) Transfer(ctx context.Context, cardID int32, amount float64) error {
+func (s *CardService) Transfer(ctx context.Context, fromCardID, toCardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
-		transactionID, err := s.cardTransactionRepository.Transfer(ctx, cardID, amount)
+		fromCard, err := s.cardRepository.FindByID(ctx, fromCardID)
+		if err != nil {
+			s.logger.Error("failed to find source card", "error", err)
+			return fmt.Errorf("failed to find source card: %w", err)
+		}
+
+		toCard, err := s.cardRepository.FindByID(ctx, toCardID)
+		if err != nil {
+			s.logger.Error("failed to find target card", "error", err)
+			return fmt.Errorf("failed to find target card: %w", err)
+		}
+
+		fromAccount, err := s.accountService.GetAccountByID(ctx, fromCard.AccountID)
+		if err != nil {
+			s.logger.Error("failed to find source account", "error", err)
+			return fmt.Errorf("failed to find source account: %w", err)
+		}
+
+		toAccount, err := s.accountService.GetAccountByID(ctx, toCard.AccountID)
+		if err != nil {
+			s.logger.Error("failed to find target account", "error", err)
+			return fmt.Errorf("failed to find target account: %w", err)
+		}
+
+		if err := fromAccount.Transfer(toAccount, amount); err != nil {
+			s.logger.Error("failed to transfer amount", "error", err)
+			return fmt.Errorf("failed to transfer amount: %w", err)
+		}
+
+		transactionID, err := s.cardTransactionRepository.Transfer(ctx, fromCardID, amount)
 		if err != nil {
 			s.logger.Error("failed to transfer money", "error", err)
 			return fmt.Errorf("failed to transfer money: %w", err)
 		}
 
-		s.logger.Info("money transferred successfully", "transaction_id", transactionID, "card_id", cardID, "amount", amount)
+		s.logger.Info("money transferred successfully", "transaction_id", transactionID, "card_id", fromCardID, "amount", amount)
 		return nil
 	})
 
@@ -176,12 +210,30 @@ func (s *CardService) Transfer(ctx context.Context, cardID int32, amount float64
 		return fmt.Errorf("transaction failed: %w", err)
 	}
 
-	s.logger.Info("transaction completed successfully", "card_id", cardID, "amount", amount)
+	s.logger.Info("transaction completed successfully", "card_id", fromCardID, "amount", amount)
 	return nil
 }
 
-func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount float64) error {
+func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
+		fromCard, err := s.cardRepository.FindByID(ctx, cardID)
+		if err != nil {
+			s.logger.Error("failed to find source card", "error", err)
+			return fmt.Errorf("failed to find source card: %w", err)
+		}
+
+		fromAccount, err := s.accountService.GetAccountByID(ctx, fromCard.AccountID)
+		if err != nil {
+			s.logger.Error("failed to find source account", "error", err)
+			return fmt.Errorf("failed to find source account: %w", err)
+		}
+
+		err = s.accountService.Withdraw(ctx, fromAccount.ID, amount)
+		if err != nil {
+			s.logger.Error("failed to withdraw amount", "error", err)
+			return fmt.Errorf("failed to withdraw amount: %w", err)
+		}
+
 		transactionID, err := s.cardTransactionRepository.Withdraw(ctx, cardID, amount)
 		if err != nil {
 			s.logger.Error("failed to withdraw money", "error", err)
@@ -200,8 +252,26 @@ func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount float64
 	return nil
 }
 
-func (s *CardService) Deposit(ctx context.Context, cardID int32, amount float64) error {
+func (s *CardService) Deposit(ctx context.Context, cardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
+		card, err := s.cardRepository.FindByID(ctx, cardID)
+		if err != nil {
+			s.logger.Error("failed to find source card", "error", err)
+			return fmt.Errorf("failed to find source card: %w", err)
+		}
+
+		account, err := s.accountService.GetAccountByID(ctx, card.AccountID)
+		if err != nil {
+			s.logger.Error("failed to find source account", "error", err)
+			return fmt.Errorf("failed to find source account: %w", err)
+		}
+
+		err = s.accountService.Deposit(ctx, account.ID, amount)
+		if err != nil {
+			s.logger.Error("failed to deposit amount", "error", err)
+			return fmt.Errorf("failed to deposit amount: %w", err)
+		}
+
 		transactionID, err := s.cardTransactionRepository.Deposit(ctx, cardID, amount)
 		if err != nil {
 			s.logger.Error("failed to deposit money", "error", err)

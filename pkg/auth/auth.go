@@ -5,6 +5,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/spf13/viper"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -32,7 +33,8 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Invalid token", http.StatusUnauthorized)
 			return
 		}
-		ctx := context.WithValue(r.Context(), "userID", claims.Subject)
+		userID, _ := strconv.Atoi(claims.Subject)
+		ctx := context.WithValue(r.Context(), "userID", int32(userID))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

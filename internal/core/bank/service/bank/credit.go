@@ -16,6 +16,7 @@ import (
 type CreditRepository interface {
 	Save(ctx context.Context, credit *entity.Credit) (*entity.Credit, error)
 	CreatePaymentSchedule(ctx context.Context, paymentSchedule *entity.PaymentSchedule) (*entity.PaymentSchedule, error)
+	GetPaymentSchedule(ctx context.Context, creditID int32) ([]entity.PaymentSchedule, error)
 	GetCreditByID(ctx context.Context, creditID int32) (*entity.Credit, error)
 
 	WithTx(ctx context.Context, fn transaction.AtomicFn, opts ...transaction.TxOption) error
@@ -35,6 +36,17 @@ func NewCreditService(logger *slog.Logger, creditRepository CreditRepository, ac
 		accountService:   accountService,
 		logger:           logger,
 	}
+}
+
+func (s *CreditService) GetPaymentSchedule(ctx context.Context, creditID int32) ([]entity.PaymentSchedule, error) {
+	paymentSchedules, err := s.creditRepository.GetPaymentSchedule(ctx, creditID)
+	if err != nil {
+		s.logger.Error("failed to get payment schedule", "error", err)
+		return nil, fmt.Errorf("failed to get payment schedule: %w", err)
+	}
+
+	s.logger.Info("payment schedule retrieved successfully", "credit_id", creditID)
+	return paymentSchedules, nil
 }
 
 // Create создает новый кредит для указанного пользователя и составляет график платежей на основе переданных параметров.

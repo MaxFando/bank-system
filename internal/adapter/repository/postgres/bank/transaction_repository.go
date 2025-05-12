@@ -6,6 +6,7 @@ import (
 	"github.com/MaxFando/bank-system/internal/core/bank/entity"
 	"github.com/MaxFando/bank-system/pkg/sqlext"
 	"github.com/MaxFando/bank-system/pkg/sqlext/transaction"
+	"github.com/shopspring/decimal"
 )
 
 type CardTransactionRepository struct {
@@ -18,7 +19,7 @@ func NewCardTransactionRepository(db sqlext.DB) *CardTransactionRepository {
 	}
 }
 
-func (c CardTransactionRepository) Transfer(ctx context.Context, cardID int32, amount float64) (int32, error) {
+func (c CardTransactionRepository) Transfer(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error) {
 	query := `
 		INSERT INTO main.card_transactions (card_id, amount, transaction_type)
 		VALUES ($1, $2, 'transfer')
@@ -34,7 +35,7 @@ func (c CardTransactionRepository) Transfer(ctx context.Context, cardID int32, a
 	return id, nil
 }
 
-func (c CardTransactionRepository) Withdraw(ctx context.Context, cardID int32, amount float64) (int32, error) {
+func (c CardTransactionRepository) Withdraw(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error) {
 	query := `
 		INSERT INTO main.card_transactions (card_id, amount, transaction_type)
 		VALUES ($1, $2, 'withdraw')
@@ -50,7 +51,7 @@ func (c CardTransactionRepository) Withdraw(ctx context.Context, cardID int32, a
 	return id, nil
 }
 
-func (c CardTransactionRepository) Deposit(ctx context.Context, cardID int32, amount float64) (int32, error) {
+func (c CardTransactionRepository) Deposit(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error) {
 	query := `
 		INSERT INTO main.card_transactions (card_id, amount, transaction_type)
 		VALUES ($1, $2, 'deposit')

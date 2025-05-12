@@ -35,6 +35,14 @@ func NewAccountService(logger *slog.Logger, repo AccountRepository) *AccountServ
 	}
 }
 
+func (s *AccountService) GetAccountByID(ctx context.Context, id int32) (*entity.Account, error) {
+	account, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find account: %w", err)
+	}
+	return account, nil
+}
+
 func (s *AccountService) GetAccountByUserID(ctx context.Context, userID int32) (*entity.Account, error) {
 	account, err := s.repo.GetAccountByUserID(ctx, userID)
 	if err != nil {

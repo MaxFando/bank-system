@@ -31,6 +31,23 @@ func (c CreditRepository) Save(ctx context.Context, credit *entity.Credit) (*ent
 }
 
 func (c CreditRepository) CreatePaymentSchedule(ctx context.Context, paymentSchedule *entity.PaymentSchedule) (*entity.PaymentSchedule, error) {
+	query := `INSERT INTO main.payment_schedules (credit_id, payment_date, payment_amount, principal_amount, interest_amount)
+    				VALUES ($1, $2, $3, $4, $5) RETURNING id`
+
+	err := c.db.Get(
+		ctx,
+		paymentSchedule,
+		query,
+		paymentSchedule.CreditID,
+		paymentSchedule.PaymentDate,
+		paymentSchedule.PaymentAmount,
+		paymentSchedule.PrincipalAmount,
+		paymentSchedule.InterestAmount,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create payment schedule: %w", err)
+	}
 
 	return paymentSchedule, nil
 }
@@ -45,6 +62,19 @@ func (c CreditRepository) GetCreditByID(ctx context.Context, creditID int32) (*e
 	}
 
 	return credit, nil
+}
+
+func (c CreditRepository) GetPaymentSchedule(ctx context.Context, creditID int32) ([]entity.PaymentSchedule, error) {
+	query := `SELECT id, credit_id, payment_date, payment_amount, principal_amount, interest_amount
+				FROM main.payment_schedules WHERE credit_id = $1`
+
+	var paymentSchedules []entity.PaymentSchedule
+	err := c.db.Select(ctx, &paymentSchedules, query, creditID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get payment schedule: %w", err)
+	}
+
+	return paymentSchedules, nil
 }
 
 func (c CreditRepository) WithTx(ctx context.Context, fn transaction.AtomicFn, opts ...transaction.TxOption) error {

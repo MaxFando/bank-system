@@ -128,14 +128,14 @@ const (
 )
 
 type Credit struct {
-	ID           int32           `db:"id"`             // Идентификатор кредита
-	UserID       int32           `db:"user_id"`        // Внешний ключ на пользователя
-	Amount       decimal.Decimal `db:"amount"`         // Сумма кредита
-	InterestRate decimal.Decimal `db:"interest_rate"`  // Процентная ставка
-	TermInMonths int32           `db:"term_in_months"` // Срок кредита (в месяцах)
-	Status       CreditStatus    `db:"status"`         // Статус кредита (оформлен, погашен)
-	CreatedAt    string          `db:"created_at"`     // Дата оформления кредита
-	UpdatedAt    string          `db:"updated_at"`     // Дата последнего обновления
+	ID           int32           `db:"id" json:"id,omitempty"`                         // Идентификатор кредита
+	UserID       int32           `db:"user_id" json:"user_id,omitempty"`               // Внешний ключ на пользователя
+	Amount       decimal.Decimal `db:"amount" json:"amount"`                           // Сумма кредита
+	InterestRate decimal.Decimal `db:"interest_rate" json:"interest_rate"`             // Процентная ставка
+	TermInMonths int32           `db:"term_in_months" json:"term_in_months,omitempty"` // Срок кредита (в месяцах)
+	Status       CreditStatus    `db:"status" json:"status,omitempty"`                 // Статус кредита (оформлен, погашен)
+	CreatedAt    string          `db:"created_at" json:"created_at,omitempty"`         // Дата оформления кредита
+	UpdatedAt    string          `db:"updated_at" json:"updated_at,omitempty"`         // Дата последнего обновления
 }
 
 func (c *Credit) Withdraw(amount decimal.Decimal) error {
@@ -153,27 +153,27 @@ func (c *Credit) Withdraw(amount decimal.Decimal) error {
 }
 
 type PaymentSchedule struct {
-	ID              int32           `db:"id"`               // Идентификатор записи
-	CreditID        int32           `db:"credit_id"`        // Внешний ключ на кредит
-	PaymentDate     time.Time       `db:"payment_date"`     // Дата платежа
-	PaymentAmount   decimal.Decimal `db:"payment_amount"`   // Сумма платежа
-	PrincipalAmount decimal.Decimal `db:"principal_amount"` // Сумма, погашенная по телу кредита
-	InterestAmount  decimal.Decimal `db:"interest_amount"`  // Сумма, погашенная по процентам
-	Penalty         decimal.Decimal `db:"penalty"`          // Штраф за просрочку
-	Balance         decimal.Decimal `db:"balance"`          // Остаток долга после платежа
-	CreatedAt       string          `db:"created_at"`       // Дата создания записи
-	UpdatedAt       string          `db:"updated_at"`       // Дата последнего обновления
+	ID              int32           `db:"id" json:"id,omitempty"`                   // Идентификатор записи
+	CreditID        int32           `db:"credit_id" json:"credit_id,omitempty"`     // Внешний ключ на кредит
+	PaymentDate     time.Time       `db:"payment_date" json:"payment_date"`         // Дата платежа
+	PaymentAmount   decimal.Decimal `db:"payment_amount" json:"payment_amount"`     // Сумма платежа
+	PrincipalAmount decimal.Decimal `db:"principal_amount" json:"principal_amount"` // Сумма, погашенная по телу кредита
+	InterestAmount  decimal.Decimal `db:"interest_amount" json:"interest_amount"`   // Сумма, погашенная по процентам
+	Penalty         decimal.Decimal `db:"penalty" json:"penalty"`                   // Штраф за просрочку
+	Balance         decimal.Decimal `db:"balance" json:"balance"`                   // Остаток долга после платежа
+	CreatedAt       string          `db:"created_at" json:"created_at,omitempty"`   // Дата создания записи
+	UpdatedAt       string          `db:"updated_at" json:"updated_at,omitempty"`   // Дата последнего обновления
 }
 
 type FinancialTransaction struct {
-	ID                int32             `db:"id"`                 // Идентификатор операции
-	UserID            int32             `db:"user_id"`            // Внешний ключ на пользователя
-	TransactionType   TransactionType   `db:"transaction_type"`   // Тип операции (пополнение, снятие и т.д.)
-	Amount            decimal.Decimal   `db:"amount"`             // Сумма операции
-	TransactionDate   time.Time         `db:"transaction_date"`   // Дата операции
-	TransactionStatus TransactionStatus `db:"transaction_status"` // Статус операции (успешно, отклонено)
-	CreatedAt         time.Time         `db:"created_at"`         // Дата создания записи
-	UpdatedAt         time.Time         `db:"updated_at"`         // Дата последнего обновления
+	ID                int32             `db:"id" json:"id,omitempty"`                                 // Идентификатор операции
+	UserID            int32             `db:"user_id" json:"user_id,omitempty"`                       // Внешний ключ на пользователя
+	TransactionType   TransactionType   `db:"transaction_type" json:"transaction_type,omitempty"`     // Тип операции (пополнение, снятие и т.д.)
+	Amount            decimal.Decimal   `db:"amount" json:"amount"`                                   // Сумма операции
+	TransactionDate   time.Time         `db:"transaction_date" json:"transaction_date"`               // Дата операции
+	TransactionStatus TransactionStatus `db:"transaction_status" json:"transaction_status,omitempty"` // Статус операции (успешно, отклонено)
+	CreatedAt         time.Time         `db:"created_at" json:"created_at"`                           // Дата создания записи
+	UpdatedAt         time.Time         `db:"updated_at" json:"updated_at"`                           // Дата последнего обновления
 }
 
 type NotificationType string
@@ -194,18 +194,18 @@ const (
 )
 
 type Notification struct {
-	ID        int32              `db:"id"`         // Идентификатор уведомления
-	UserID    int32              `db:"user_id"`    // Внешний ключ на пользователя
-	Type      NotificationType   `db:"type"`       // Тип уведомления (email, SMS и т.д.)
-	Subject   string             `db:"subject"`    // Тема письма
-	Body      string             `db:"body"`       // Текст письма
-	Status    NotificationStatus `db:"status"`     // Статус отправки (отправлено, не отправлено)
-	CreatedAt time.Time          `db:"created_at"` // Дата отправки
+	ID        int32              `db:"id" json:"id,omitempty"`           // Идентификатор уведомления
+	UserID    int32              `db:"user_id" json:"user_id,omitempty"` // Внешний ключ на пользователя
+	Type      NotificationType   `db:"type" json:"type,omitempty"`       // Тип уведомления (email, SMS и т.д.)
+	Subject   string             `db:"subject" json:"subject,omitempty"` // Тема письма
+	Body      string             `db:"body" json:"body,omitempty"`       // Текст письма
+	Status    NotificationStatus `db:"status" json:"status,omitempty"`   // Статус отправки (отправлено, не отправлено)
+	CreatedAt time.Time          `db:"created_at" json:"created_at"`     // Дата отправки
 }
 
 type CentralBankRate struct {
-	ID        int32           `db:"id"`         // Идентификатор записи
-	Rate      decimal.Decimal `db:"rate"`       // Ключевая ставка
-	RateDate  time.Time       `db:"rate_date"`  // Дата ставки
-	CreatedAt time.Time       `db:"created_at"` // Дата записи
+	ID        int32           `db:"id" json:"id,omitempty"`       // Идентификатор записи
+	Rate      decimal.Decimal `db:"rate" json:"rate"`             // Ключевая ставка
+	RateDate  time.Time       `db:"rate_date" json:"rate_date"`   // Дата ставки
+	CreatedAt time.Time       `db:"created_at" json:"created_at"` // Дата записи
 }

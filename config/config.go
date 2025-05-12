@@ -13,12 +13,10 @@ type Config struct {
 
 func Load() *Config {
 	return &Config{
-		ServiceName:    "my-service",
-		Environment:    "development",
-		Port:           ":8080",
-		DatabaseDSN:    "user:password@tcp(localhost:3306)/dbname",
-		PublicKeyPath:  "./keys/public.pem",
-		PrivateKeyPath: "./keys/private.pem",
-		Passphrase:     "your-passphrase",
+		ServiceName: "bank",
+		Environment: "development",
+		Port:        "8080",
+		DatabaseDSN: "postgres://postgres:postgres@database:5432/bank?sslmode=disable",
+		Passphrase:  "verysecret",
 	}
 }

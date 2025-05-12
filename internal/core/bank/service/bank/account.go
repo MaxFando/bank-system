@@ -95,15 +95,15 @@ func generateAccountNumber(userID int32) (entity.AccountNumber, error) {
 
 	accountNumber := entity.AccountNumber(fmt.Sprintf("%d%s", userID, randomPartStr))
 
-	if err := accountNumber.Validate(); err != nil {
-		return "", err
-	}
-
 	return accountNumber, nil
 }
 
 // Deposit выполняет пополнение баланса указанного счета на заданную сумму. Возвращает ошибку, если операция завершилась неудачей.
 func (s *AccountService) Deposit(ctx context.Context, accountID int32, amount decimal.Decimal) error {
+	if amount.LessThan(decimal.Zero) {
+		return entity.ErrDepositNegativeAmount
+	}
+
 	err := s.repo.WithTx(ctx, func(ctx context.Context) error {
 		account, err := s.repo.FindByID(ctx, accountID)
 		if err != nil {

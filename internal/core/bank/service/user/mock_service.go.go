@@ -36,11 +36,12 @@ func (m *MockRepository) EXPECT() *MockRepositoryMockRecorder {
 }
 
 // UpdateProfile mocks base method.
-func (m *MockRepository) UpdateProfile(ctx context.Context, user *entity.User) error {
+func (m *MockRepository) UpdateProfile(ctx context.Context, user *entity.User) (*entity.User, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateProfile", ctx, user)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(*entity.User)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // UpdateProfile indicates an expected call of UpdateProfile.

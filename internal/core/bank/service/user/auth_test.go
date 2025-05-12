@@ -11,7 +11,6 @@ import (
 )
 
 func TestNewAuthService(t *testing.T) {
-	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -27,7 +26,6 @@ func TestNewAuthService(t *testing.T) {
 }
 
 func TestAuthService_Register(t *testing.T) {
-	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()
@@ -88,7 +86,6 @@ func TestAuthService_Register(t *testing.T) {
 }
 
 func TestAuthService_Login(t *testing.T) {
-	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 	defer ctrl.Finish()

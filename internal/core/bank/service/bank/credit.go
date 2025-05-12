@@ -1,3 +1,4 @@
+//go:generate go run github.com/golang/mock/mockgen -source=$GOFILE -destination=./mock_${GOFILE}.go -package=${GOPACKAGE}
 package bank
 
 import (

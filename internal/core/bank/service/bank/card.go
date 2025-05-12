@@ -1,3 +1,4 @@
+//go:generate go run github.com/golang/mock/mockgen -source=$GOFILE -destination=./mock_${GOFILE}.go -package=${GOPACKAGE}
 package bank
 
 import (
@@ -19,12 +20,17 @@ import (
 	"time"
 )
 
+// CardRepository определяет методы для работы с хранилищем данных карт.
+// Save сохраняет новую карту или обновляет существующую.
+// FindByID ищет карту по уникальному идентификатору.
+// FindByAccountID возвращает список карт, привязанных к определенному аккаунту.
 type CardRepository interface {
 	Save(ctx context.Context, card *entity.Card) (*entity.Card, error)
 	FindByID(ctx context.Context, id int32) (*entity.Card, error)
 	FindByAccountID(ctx context.Context, accountID int32) ([]entity.Card, error)
 }
 
+// CardTransactionRepository предоставляет методы для работы с операциями по картам, такими как перевод, снятие и пополнение.
 type CardTransactionRepository interface {
 	Transfer(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error)
 	Withdraw(ctx context.Context, cardID int32, amount decimal.Decimal) (int32, error)
@@ -34,6 +40,7 @@ type CardTransactionRepository interface {
 	WithTx(ctx context.Context, fn transaction.AtomicFn, opts ...transaction.TxOption) error
 }
 
+// CardService предоставляет методы для работы с банковскими картами, включая создание, обновление и обработку транзакций.
 type CardService struct {
 	cardRepository            CardRepository
 	cardTransactionRepository CardTransactionRepository
@@ -47,6 +54,7 @@ type CardService struct {
 	logger *slog.Logger
 }
 
+// NewCardService создает и возвращает новый экземпляр CardService с заданными параметрами.
 func NewCardService(
 	logger *slog.Logger,
 	cfg *config.Config,
@@ -65,7 +73,7 @@ func NewCardService(
 	}
 }
 
-// Create создает новую кредитную карту с указанными параметрами и сохраняет ее в хранилище.
+// Create создает новую карту для указанного аккаунта, сохраняет данные карты и возвращает созданную карту или ошибку.
 func (s *CardService) Create(ctx context.Context, account *entity.Account) (*entity.Card, error) {
 	card := &entity.Card{
 		AccountID:      account.ID,
@@ -99,7 +107,7 @@ func (s *CardService) Create(ctx context.Context, account *entity.Account) (*ent
 	return savedCard, nil
 }
 
-// FindByID находит кредитную карту по ее идентификатору.
+// FindByID находит и возвращает карту по указанному идентификатору, либо ошибку, если карта не найдена или произошла ошибка.
 func (s *CardService) FindByID(ctx context.Context, id int32) (*entity.Card, error) {
 	card, err := s.cardRepository.FindByID(ctx, id)
 	if err != nil {
@@ -116,7 +124,8 @@ func (s *CardService) FindByID(ctx context.Context, id int32) (*entity.Card, err
 	return card, nil
 }
 
-// FindByAccountID находит все кредитные карты, связанные с указанным идентификатором счета.
+// FindByAccountID ищет и возвращает список карт, связанных с указанным идентификатором аккаунта.
+// Возвращает ошибку, если карта не найдена или произошла проблема при обработке данных.
 func (s *CardService) FindByAccountID(ctx context.Context, accountID int32) ([]entity.Card, error) {
 	cards, err := s.cardRepository.FindByAccountID(ctx, accountID)
 	if err != nil {
@@ -137,6 +146,7 @@ func (s *CardService) FindByAccountID(ctx context.Context, accountID int32) ([]e
 	return cards, nil
 }
 
+// smth проверяет целостность данных карты, расшифровывает их и обновляет информацию объекта карты.
 func (s *CardService) smth(err error, card *entity.Card) (*entity.Card, error) {
 	// Расшифровка данных карты
 	decryptCardData, err := s.decryptCardData(card.EncryptedData, s.privateKeyPath, s.passphrase)
@@ -164,6 +174,7 @@ func (s *CardService) smth(err error, card *entity.Card) (*entity.Card, error) {
 	return nil, nil
 }
 
+// Transfer выполняет перевод указанной суммы с одной карты на другую в рамках заданного контекста.
 func (s *CardService) Transfer(ctx context.Context, fromCardID, toCardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
 		fromCard, err := s.cardRepository.FindByID(ctx, fromCardID)
@@ -214,6 +225,7 @@ func (s *CardService) Transfer(ctx context.Context, fromCardID, toCardID int32, 
 	return nil
 }
 
+// Withdraw выполняет снятие указанной суммы с карты, идентифицированной cardID, с учетом контекста выполнения.
 func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
 		fromCard, err := s.cardRepository.FindByID(ctx, cardID)
@@ -252,6 +264,8 @@ func (s *CardService) Withdraw(ctx context.Context, cardID int32, amount decimal
 	return nil
 }
 
+// Deposit пополняет баланс карты на указанную сумму.
+// Возвращает ошибку, если операция завершилась неуспешно.
 func (s *CardService) Deposit(ctx context.Context, cardID int32, amount decimal.Decimal) error {
 	err := s.cardTransactionRepository.WithTx(ctx, func(ctx context.Context) error {
 		card, err := s.cardRepository.FindByID(ctx, cardID)
@@ -289,7 +303,7 @@ func (s *CardService) Deposit(ctx context.Context, cardID int32, amount decimal.
 	return nil
 }
 
-// Генерация CVV кода
+// generateCVV генерирует случайный CVV код длиной 3 символа в виде строки.
 func generateCVV() string {
 	rand.Seed(time.Now().UnixNano())
 
@@ -301,7 +315,8 @@ func generateCVV() string {
 	return fmt.Sprintf("%0*d", cvvLength, cvv)
 }
 
-// Генерация номера карты с использованием алгоритма Луна
+// generateCardNumber создает и возвращает уникальный номер карты на основе ID аккаунта.
+// Для генерации используется алгоритм Luhn для проверки корректности номера.
 func generateCardNumber(accountID int32) string {
 	seed := int64(accountID) + time.Now().UnixNano()
 	rand.Seed(seed)
@@ -333,6 +348,7 @@ func generateCardNumber(accountID int32) string {
 	return cardNumberStr
 }
 
+// generateCardNumber генерирует уникальный номер карты с использованием алгоритма Луна для проверки контрольной цифры.
 func (s *CardService) generateCardNumber() string {
 	cardNumber := make([]int, 16)
 	rand.Seed(time.Now().UnixNano())
@@ -363,6 +379,7 @@ func (s *CardService) generateCardNumber() string {
 	return cardNumberStr
 }
 
+// encryptCardDataPGP шифрует данные карты, используя PGP и указанный публичный ключ. Возвращает зашифрованную строку или ошибку.
 func (s *CardService) encryptCardDataPGP(card *entity.Card, publicKeyPath string, signedEntity *openpgp.Entity) (string, error) {
 	pubKeyFile, err := os.Open(publicKeyPath)
 	if err != nil {
@@ -397,7 +414,9 @@ func (s *CardService) encryptCardDataPGP(card *entity.Card, publicKeyPath string
 	return encryptedData.String(), nil
 }
 
-// Функция для расшифровки данных карты
+// decryptCardData расшифровывает данные карты, зашифрованные с использованием PGP, с использованием указанного приватного ключа.
+// Принимает зашифрованные данные, путь к файлу приватного ключа и парольную фразу для дешифровки.
+// Возвращает строку с расшифрованными данными или ошибку, если проблема возникла во время процесса.
 func (s *CardService) decryptCardData(encryptedData string, privateKeyPath string, passphrase string) (string, error) {
 	privKeyFile, err := os.Open(privateKeyPath)
 	if err != nil {
@@ -433,7 +452,7 @@ func (s *CardService) decryptCardData(encryptedData string, privateKeyPath strin
 	return decryptedData.String(), nil
 }
 
-// Функция для вычисления HMAC для проверки целостности
+// generateHMAC генерирует HMAC-хэш строки `data` с использованием заданного секретного ключа `secretKey`.
 func (s *CardService) generateHMAC(data string, secretKey string) string {
 	hash := hmac.New(sha256.New, []byte(secretKey))
 	hash.Write([]byte(data))
